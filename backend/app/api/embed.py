@@ -13,13 +13,9 @@ from datetime import datetime
 import secrets
 from typing import Optional
 
-# Use relative imports with fallback
-try:
-    from services.supabase_service import supabase
-    from services.gemini_service import get_text_embeddings, get_gemini_model
-except ImportError:
-    from app.services.supabase_service import supabase
-    from app.services.gemini_service import get_text_embeddings, get_gemini_model
+# Import services
+from services.supabase_service import supabase
+from services.gemini_service import get_text_embeddings, get_gemini_model
 
 router = APIRouter()
 

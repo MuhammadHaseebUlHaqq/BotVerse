@@ -10,11 +10,8 @@ from pydantic import BaseModel
 from uuid import uuid4
 from datetime import datetime
 
-# Use relative imports with fallback
-try:
-    from services.supabase_service import supabase
-except ImportError:
-    from app.services.supabase_service import supabase
+# Import services
+from services.supabase_service import supabase
 
 router = APIRouter()
 

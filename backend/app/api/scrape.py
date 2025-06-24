@@ -12,15 +12,10 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 
-# Use relative imports with fallback
-try:
-    from services.supabase_service import supabase
-    from services.file_parser import chunk_text
-    from services.gemini_service import get_text_embeddings
-except ImportError:
-    from app.services.supabase_service import supabase
-    from app.services.file_parser import chunk_text
-    from app.services.gemini_service import get_text_embeddings
+# Import services
+from services.supabase_service import supabase
+from services.file_parser import chunk_text
+from services.gemini_service import get_text_embeddings
 
 router = APIRouter()
 

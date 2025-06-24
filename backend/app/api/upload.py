@@ -10,15 +10,10 @@ from fastapi.responses import JSONResponse
 from uuid import uuid4
 from datetime import datetime
 
-# Use relative imports with fallback
-try:
-    from services.supabase_service import supabase
-    from services.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt, chunk_text
-    from services.gemini_service import get_text_embeddings
-except ImportError:
-    from app.services.supabase_service import supabase
-    from app.services.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt, chunk_text
-    from app.services.gemini_service import get_text_embeddings
+# Import services
+from services.supabase_service import supabase
+from services.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt, chunk_text
+from services.gemini_service import get_text_embeddings
 
 router = APIRouter()
 

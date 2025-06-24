@@ -11,13 +11,9 @@ import numpy as np
 from datetime import datetime
 from uuid import uuid4
 
-# Use relative imports with fallback
-try:
-    from services.supabase_service import supabase
-    from services.gemini_service import get_text_embeddings, get_gemini_model
-except ImportError:
-    from app.services.supabase_service import supabase
-    from app.services.gemini_service import get_text_embeddings, get_gemini_model
+# Import services
+from services.supabase_service import supabase
+from services.gemini_service import get_text_embeddings, get_gemini_model
 
 router = APIRouter()
 
