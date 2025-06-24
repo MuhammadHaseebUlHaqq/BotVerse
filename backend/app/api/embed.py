@@ -8,7 +8,7 @@ sys.path.insert(0, str(current_dir))
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-import numpy as np
+import math
 from datetime import datetime
 import secrets
 from typing import Optional
@@ -452,25 +452,35 @@ def embed_chat(request: EmbedChatRequest):
         # Use the same chat logic as the main chat endpoint
         # 1. Embed the user query
         query_embedding = get_text_embeddings([request.user_query])[0]
-        query_embedding = np.array(query_embedding)
 
         # 2. Retrieve all embeddings for the bot
         res = supabase.table("embeddings").select("chunk_text,embedding").eq("bot_id", request.bot_id).execute()
         if not res.data or len(res.data) == 0:
             raise HTTPException(status_code=404, detail="No embeddings found for this bot.")
 
-        # 3. Compute cosine similarity
+        # 3. Compute cosine similarity (without numpy)
+        def cosine_similarity(vec1, vec2):
+            """Compute cosine similarity without numpy"""
+            dot_product = sum(a * b for a, b in zip(vec1, vec2))
+            norm1 = math.sqrt(sum(a * a for a in vec1))
+            norm2 = math.sqrt(sum(a * a for a in vec2))
+            return dot_product / (norm1 * norm2 + 1e-8)
+        
         chunk_texts = []
         similarities = []
         for row in res.data:
-            chunk_embedding = np.array(row["embedding"])
-            sim = np.dot(query_embedding, chunk_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(chunk_embedding) + 1e-8)
+            chunk_embedding = row["embedding"]
+            sim = cosine_similarity(query_embedding, chunk_embedding)
             similarities.append(sim)
             chunk_texts.append(row["chunk_text"])
 
         # 4. Select top-k most similar chunks
         top_k = min(request.top_k, len(similarities))
-        top_indices = np.argsort(similarities)[-top_k:][::-1]
+        # Sort by similarity and get top k indices
+        indexed_similarities = [(i, sim) for i, sim in enumerate(similarities)]
+        indexed_similarities.sort(key=lambda x: x[1], reverse=True)
+        top_indices = [i for i, _ in indexed_similarities[:top_k]]
+        
         context_chunks = [chunk_texts[i] for i in top_indices]
         context = "\n".join(context_chunks)
 

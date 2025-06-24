@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "functions": {
+    "backend/app/main.py": {
+      "runtime": "python3.11",
+      "maxDuration": 30
+    }
+  },
   "builds": [
     {
       "src": "frontend/package.json",
@@ -7,14 +13,6 @@
       "config": {
         "distDir": "dist"
       }
-    },
-    {
-      "src": "backend/app/main.py",
-      "use": "@vercel/python",
-              "config": {
-          "maxLambdaSize": "50mb",
-          "runtime": "python3.11"
-        }
     }
   ],
   "routes": [

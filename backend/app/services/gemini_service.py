@@ -1,10 +1,10 @@
 import os
-from dotenv import load_dotenv
 import google.generativeai as genai
 from typing import List
 import requests
-import hashlib
 
+# Load environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
 # Gemini setup for chatbot/generation
