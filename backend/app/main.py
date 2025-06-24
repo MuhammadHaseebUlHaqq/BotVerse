@@ -1,11 +1,28 @@
 import os
+import sys
+from pathlib import Path
+
+# Add the current directory to Python path for imports
+current_dir = Path(__file__).parent
+sys.path.insert(0, str(current_dir))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.bots import router as bots_router
-from app.api.upload import router as upload_router
-from app.api.scrape import router as scrape_router
-from app.api.chat import router as chat_router
-from app.api.embed import router as embed_router
+
+# Use relative imports that work in serverless environment
+try:
+    from api.bots import router as bots_router
+    from api.upload import router as upload_router
+    from api.scrape import router as scrape_router
+    from api.chat import router as chat_router
+    from api.embed import router as embed_router
+except ImportError:
+    # Fallback for different environments
+    from app.api.bots import router as bots_router
+    from app.api.upload import router as upload_router
+    from app.api.scrape import router as scrape_router
+    from app.api.chat import router as chat_router
+    from app.api.embed import router as embed_router
 
 app = FastAPI(title="Botverse API", version="1.0.0")
 

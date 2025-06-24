@@ -1,12 +1,26 @@
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+current_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(current_dir))
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.services.supabase_service import supabase
 from uuid import uuid4
 from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
-from app.services.file_parser import chunk_text
-from app.services.gemini_service import get_text_embeddings  # Embeddings use HuggingFace bge-base-en
+
+# Use relative imports with fallback
+try:
+    from services.supabase_service import supabase
+    from services.file_parser import chunk_text
+    from services.gemini_service import get_text_embeddings
+except ImportError:
+    from app.services.supabase_service import supabase
+    from app.services.file_parser import chunk_text
+    from app.services.gemini_service import get_text_embeddings
 
 router = APIRouter()
 

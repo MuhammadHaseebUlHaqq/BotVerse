@@ -1,12 +1,25 @@
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+current_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(current_dir))
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from app.services.supabase_service import supabase
-from app.services.gemini_service import get_text_embeddings, get_gemini_model
 import numpy as np
 from datetime import datetime
 import secrets
 from typing import Optional
+
+# Use relative imports with fallback
+try:
+    from services.supabase_service import supabase
+    from services.gemini_service import get_text_embeddings, get_gemini_model
+except ImportError:
+    from app.services.supabase_service import supabase
+    from app.services.gemini_service import get_text_embeddings, get_gemini_model
 
 router = APIRouter()
 
