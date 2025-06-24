@@ -47,7 +47,11 @@ app.include_router(embed_router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "environment": os.getenv("ENVIRONMENT", "development")}
+    return {
+        "status": "ok", 
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "version": "1.0.1"
+    }
 
 # For Vercel serverless functions
 def handler(event, context):
