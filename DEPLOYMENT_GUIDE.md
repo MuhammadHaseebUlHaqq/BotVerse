@@ -19,7 +19,20 @@ SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_api_key
 ENVIRONMENT=production
+
+# Optional - for better embedding performance (all FREE):
+HUGGINGFACE_API_KEY=your_hf_token_optional
+COHERE_API_KEY=your_cohere_key_optional
 ```
+
+**Free API Keys Setup:**
+1. **HuggingFace (Optional)**: Get free token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+   - ✅ **Works without API key** (with rate limits)
+   - ✅ **Unlimited with free token**
+   
+2. **Cohere (Optional)**: Get free API key at [cohere.com](https://cohere.com)
+   - ✅ **Free tier**: 100 API calls/month
+   - ✅ **High quality embeddings**
 
 **Frontend Environment Variables:**
 ```
@@ -81,7 +94,7 @@ CREATE TABLE embeddings (
     bot_id TEXT REFERENCES bots(id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL,
     chunk_text TEXT NOT NULL,
-    embedding VECTOR(768),
+    embedding VECTOR(768),  -- BGE-base-en-v1.5 dimensions (HuggingFace)
     created_at TIMESTAMP DEFAULT NOW()
 );
 
