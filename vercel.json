@@ -11,9 +11,10 @@
     {
       "src": "backend/app/main.py",
       "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+              "config": {
+          "maxLambdaSize": "50mb",
+          "runtime": "python3.11"
+        }
     }
   ],
   "routes": [
