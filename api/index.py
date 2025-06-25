@@ -15,6 +15,8 @@ try:
     from supabase import create_client, Client
     import google.generativeai as genai
     from dotenv import load_dotenv
+    from bs4 import BeautifulSoup
+    import time
     load_dotenv()
 except ImportError as e:
     print(f"Import warning: {e}")
@@ -43,6 +45,47 @@ def get_gemini_embeddings(text):
     except Exception as e:
         print(f"Gemini embeddings error: {e}")
         return None
+
+def scrape_website(url):
+    """Scrape text content from a website"""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        # Get text content
+        text = soup.get_text()
+        
+        # Clean up text
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        # Get page title
+        title = soup.find('title')
+        page_title = title.string.strip() if title else url
+        
+        return {
+            "title": page_title,
+            "content": text,
+            "url": url,
+            "length": len(text)
+        }
+        
+    except Exception as e:
+        return {
+            "error": f"Scraping failed: {str(e)}",
+            "url": url
+        }
 
 def extract_text_from_pdf(file_content):
     try:
@@ -100,7 +143,7 @@ class handler(BaseHTTPRequestHandler):
             response = {
                 "status": "ok",
                 "environment": os.getenv("ENVIRONMENT", "development"),
-                "version": "1.1.0"
+                "version": "1.2.0"
             }
         elif path == '/api/test':
             response = {
@@ -132,7 +175,7 @@ class handler(BaseHTTPRequestHandler):
         else:
             response = {
                 "message": "Botverse API is running",
-                "version": "1.1.0",
+                "version": "1.2.0",
                 "path": path
             }
         
@@ -203,6 +246,31 @@ class handler(BaseHTTPRequestHandler):
                     "error": f"Upload processing error: {str(e)}",
                     "details": str(type(e).__name__)
                 }
+        
+        elif path == '/api/scrape':
+            try:
+                # Get content length
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse JSON data
+                data = json.loads(post_data.decode('utf-8'))
+                url = data.get('url')
+                bot_name = data.get('botName')
+                
+                if not url:
+                    response = {"error": "URL is required"}
+                else:
+                    response = self.process_website_scrape(url, bot_name)
+                    
+            except json.JSONDecodeError:
+                response = {"error": "Invalid JSON data"}
+            except Exception as e:
+                response = {
+                    "error": f"Scrape processing error: {str(e)}",
+                    "details": str(type(e).__name__)
+                }
+        
         else:
             response = {
                 "message": "POST endpoint working",
@@ -210,6 +278,100 @@ class handler(BaseHTTPRequestHandler):
             }
         
         self.wfile.write(json.dumps(response).encode())
+    
+    def process_website_scrape(self, url, bot_name):
+        """Process website scraping and store in database"""
+        try:
+            # Scrape the website
+            scrape_result = scrape_website(url)
+            
+            if 'error' in scrape_result:
+                return scrape_result
+            
+            text_content = scrape_result['content']
+            page_title = scrape_result['title']
+            
+            if not text_content:
+                return {"error": "Could not extract text from website"}
+            
+            # Generate bot name if not provided
+            if not bot_name:
+                bot_name = f"Bot from {page_title}"
+            
+            # Get Supabase client
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"error": "Database connection failed"}
+            
+            # Store bot in database
+            bot_data = {
+                "name": bot_name,
+                "type": "website",
+                "source": url,
+                "status": "processing"
+            }
+            
+            bot_result = supabase.table("bots").insert(bot_data).execute()
+            if not bot_result.data:
+                return {"error": "Failed to create bot"}
+            
+            bot_id = bot_result.data[0]["id"]
+            
+            # Store document
+            doc_data = {
+                "bot_id": bot_id,
+                "content": text_content,
+                "filename": page_title,
+                "file_type": "html"
+            }
+            
+            doc_result = supabase.table("documents").insert(doc_data).execute()
+            if not doc_result.data:
+                return {"error": "Failed to store document"}
+            
+            doc_id = doc_result.data[0]["id"]
+            
+            # Chunk text and create embeddings
+            chunks = chunk_text(text_content)
+            embeddings_created = 0
+            
+            for i, chunk in enumerate(chunks):
+                # Get embeddings
+                embedding = get_gemini_embeddings(chunk)
+                if embedding:
+                    embedding_data = {
+                        "document_id": doc_id,
+                        "chunk_text": chunk,
+                        "chunk_index": i,
+                        "embedding": embedding
+                    }
+                    
+                    embed_result = supabase.table("embeddings").insert(embedding_data).execute()
+                    if embed_result.data:
+                        embeddings_created += 1
+                
+                # Small delay to avoid rate limits
+                time.sleep(0.1)
+            
+            # Update bot status
+            supabase.table("bots").update({"status": "ready"}).eq("id", bot_id).execute()
+            
+            return {
+                "message": "Website scraped and processed successfully",
+                "bot_id": bot_id,
+                "bot_name": bot_name,
+                "url": url,
+                "page_title": page_title,
+                "text_length": len(text_content),
+                "chunks_created": len(chunks),
+                "embeddings_created": embeddings_created
+            }
+            
+        except Exception as e:
+            return {
+                "error": f"Website processing error: {str(e)}",
+                "details": str(type(e).__name__)
+            }
     
     def process_uploaded_file(self, file_content, filename, bot_name):
         """Process uploaded file and store in database"""
