@@ -1,59 +1,48 @@
 import os
-import sys
-from pathlib import Path
-
-# Ensure we can import from the app directory
-app_dir = Path(__file__).parent
-sys.path.insert(0, str(app_dir))
-sys.path.insert(0, str(app_dir.parent))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import routers
-from api.bots import router as bots_router
-from api.upload import router as upload_router
-from api.scrape import router as scrape_router
-from api.chat import router as chat_router
-from api.embed import router as embed_router
+# Create the FastAPI app
+app = FastAPI(title="Botverse API", version="1.0.2")
 
-app = FastAPI(title="Botverse API", version="1.0.0")
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for now
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Configure CORS based on environment
-if os.getenv("ENVIRONMENT") == "production":
-    # Production CORS - replace with your actual domain
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["https://botverse-snowy.vercel.app"],  # Update this with your actual domain
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["*"],
-    )
-else:
-    # Development CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-app.include_router(bots_router, prefix="/api")
-app.include_router(upload_router, prefix="/api")
-app.include_router(scrape_router, prefix="/api")
-app.include_router(chat_router, prefix="/api")
-app.include_router(embed_router, prefix="/api")
+@app.get("/")
+def root():
+    return {"message": "Botverse API is running", "version": "1.0.2"}
 
 @app.get("/api/health")
 def health_check():
     return {
         "status": "ok", 
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "version": "1.0.1"
+        "version": "1.0.2"
     }
+
+@app.get("/api/test")
+def test_endpoint():
+    return {
+        "message": "Test endpoint working",
+        "supabase_url": "set" if os.getenv("SUPABASE_URL") else "missing",
+        "gemini_api": "set" if os.getenv("GEMINI_API_KEY") else "missing"
+    }
+
+# Simple test endpoints to verify basic functionality
+@app.get("/api/bots")
+def list_bots():
+    return {"message": "Bots endpoint working", "bots": []}
+
+@app.post("/api/upload")
+def upload_test():
+    return {"message": "Upload endpoint reachable", "status": "test"}
 
 # For Vercel serverless functions
 from mangum import Mangum
-
 handler = Mangum(app) 
