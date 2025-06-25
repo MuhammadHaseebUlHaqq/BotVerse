@@ -24,7 +24,7 @@ if os.getenv("ENVIRONMENT") == "production":
     # Production CORS - replace with your actual domain
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://bot-verse-nine.vercel.app"],  # Update this with your actual domain
+        allow_origins=["https://botverse-snowy.vercel.app"],  # Update this with your actual domain
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
