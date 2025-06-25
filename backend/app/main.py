@@ -1,49 +1,28 @@
-import os
-import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
+from app.api.bots import router as bots_router
+from app.api.upload import router as upload_router
+from app.api.scrape import router as scrape_router
+from app.api.chat import router as chat_router
+from app.api.embed import router as embed_router
 
-# Create the FastAPI app
-app = FastAPI(title="Botverse API", version="1.0.5")
+app = FastAPI()
 
-# Configure CORS
+# Enable CORS for all origins (for development)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/")
-def root():
-    return {"message": "Botverse API is running", "version": "1.0.5"}
+app.include_router(bots_router)
+app.include_router(upload_router)
+app.include_router(scrape_router)
+app.include_router(chat_router)
+app.include_router(embed_router)
 
-@app.get("/api/health")
+@app.get("/health")
 def health_check():
-    return {
-        "status": "ok", 
-        "environment": os.getenv("ENVIRONMENT", "development"),
-        "version": "1.0.5"
-    }
-
-@app.get("/api/test")
-def test_endpoint():
-    return {
-        "message": "Test endpoint working",
-        "supabase_url": "set" if os.getenv("SUPABASE_URL") else "missing",
-        "gemini_api": "set" if os.getenv("GEMINI_API_KEY") else "missing"
-    }
-
-# Simple test endpoints to verify basic functionality
-@app.get("/api/bots")
-def list_bots():
-    return {"message": "Bots endpoint working", "bots": []}
-
-@app.post("/api/upload")
-def upload_test():
-    return {"message": "Upload endpoint reachable", "status": "test"}
-
-# Mangum handler for Vercel
-handler = Mangum(app, lifespan="off") 
+    return {"status": "ok"} 

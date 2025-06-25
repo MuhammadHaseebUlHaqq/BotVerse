@@ -1,19 +1,10 @@
-import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-current_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(current_dir))
-
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
+from app.services.supabase_service import supabase
+from app.services.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt, chunk_text
+from app.services.gemini_service import get_text_embeddings  # Embeddings use HuggingFace bge-base-en
 from uuid import uuid4
 from datetime import datetime
-
-# Import services
-from services.supabase_service import supabase
-from services.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt, chunk_text
-from services.gemini_service import get_text_embeddings
 
 router = APIRouter()
 

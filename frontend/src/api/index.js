@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BASE_URL = 'http://localhost:8000';
 
 export async function uploadDocument(formData) {
   const res = await fetch(`${BASE_URL}/upload`, {
@@ -9,11 +9,11 @@ export async function uploadDocument(formData) {
   return res.json();
 }
 
-export async function scrapeWebsite({ url }) {
+export async function scrapeWebsite({ url, bot_id, bot_name, replace_content }) {
   const res = await fetch(`${BASE_URL}/scrape`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, bot_id, bot_name, replace_content }),
   });
   if (!res.ok) throw new Error('Scrape failed');
   return res.json();

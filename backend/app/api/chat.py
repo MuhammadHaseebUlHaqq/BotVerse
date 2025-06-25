@@ -1,19 +1,10 @@
-import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-current_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(current_dir))
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import math
+from app.services.supabase_service import supabase
+from app.services.gemini_service import get_text_embeddings, get_gemini_model
+import numpy as np
 from datetime import datetime
 from uuid import uuid4
-
-# Import services
-from services.supabase_service import supabase
-from services.gemini_service import get_text_embeddings, get_gemini_model
 
 router = APIRouter()
 
@@ -28,6 +19,7 @@ def chat(request: ChatRequest):
     # 1. Embed the user query
     try:
         query_embedding = get_text_embeddings([request.user_query])[0]
+        query_embedding = np.array(query_embedding)
         print("Query embedding computed.")
     except Exception as e:
         print("Error in embedding user query:", e)
@@ -44,20 +36,13 @@ def chat(request: ChatRequest):
         print("Error fetching embeddings:", e)
         raise HTTPException(status_code=500, detail=f"Failed to fetch embeddings: {str(e)}")
 
-    # 3. Compute cosine similarity (without numpy)
+    # 3. Compute cosine similarity
     chunk_texts = []
     similarities = []
     try:
-        def cosine_similarity(vec1, vec2):
-            """Compute cosine similarity without numpy"""
-            dot_product = sum(a * b for a, b in zip(vec1, vec2))
-            norm1 = math.sqrt(sum(a * a for a in vec1))
-            norm2 = math.sqrt(sum(a * a for a in vec2))
-            return dot_product / (norm1 * norm2 + 1e-8)
-        
         for row in res.data:
-            chunk_embedding = row["embedding"]
-            sim = cosine_similarity(query_embedding, chunk_embedding)
+            chunk_embedding = np.array(row["embedding"])
+            sim = np.dot(query_embedding, chunk_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(chunk_embedding) + 1e-8)
             similarities.append(sim)
             chunk_texts.append(row["chunk_text"])
         print("Similarities computed.")
@@ -68,11 +53,7 @@ def chat(request: ChatRequest):
     # 4. Select top-k most similar chunks
     try:
         top_k = min(request.top_k, len(similarities))
-        # Sort by similarity and get top k indices
-        indexed_similarities = [(i, sim) for i, sim in enumerate(similarities)]
-        indexed_similarities.sort(key=lambda x: x[1], reverse=True)
-        top_indices = [i for i, _ in indexed_similarities[:top_k]]
-        
+        top_indices = np.argsort(similarities)[-top_k:][::-1]
         context_chunks = [chunk_texts[i] for i in top_indices]
         context = "\n".join(context_chunks)
         print("Context chunks selected.")
