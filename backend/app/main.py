@@ -1,9 +1,11 @@
 import os
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 
 # Create the FastAPI app
-app = FastAPI(title="Botverse API", version="1.0.2")
+app = FastAPI(title="Botverse API", version="1.0.5")
 
 # Configure CORS
 app.add_middleware(
@@ -16,14 +18,14 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Botverse API is running", "version": "1.0.2"}
+    return {"message": "Botverse API is running", "version": "1.0.5"}
 
 @app.get("/api/health")
 def health_check():
     return {
         "status": "ok", 
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "version": "1.0.2"
+        "version": "1.0.5"
     }
 
 @app.get("/api/test")
@@ -43,6 +45,5 @@ def list_bots():
 def upload_test():
     return {"message": "Upload endpoint reachable", "status": "test"}
 
-# For Vercel serverless functions
-from mangum import Mangum
-handler = Mangum(app) 
+# Mangum handler for Vercel
+handler = Mangum(app, lifespan="off") 
