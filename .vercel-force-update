@@ -1,0 +1,7 @@
+This file forces Vercel to redeploy with latest optimizations.
+Timestamp: 2024-06-25
+Optimizations included:
+- Removed numpy dependency
+- Lightweight cosine similarity
+- Pinned exact package versions
+- Fixed import paths for serverless 
