@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import cgi
 from io import BytesIO
+import math
 
 # Import file processing libraries
 try:
@@ -39,12 +40,73 @@ def get_gemini_embeddings(text):
         result = genai.embed_content(
             model=model,
             content=text,
-            task_type="retrieval_document"
+            task_type="retrieval_query"
         )
         return result['embedding']
     except Exception as e:
         print(f"Gemini embeddings error: {e}")
         return None
+
+def get_gemini_response(prompt, context):
+    try:
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        full_prompt = f"""You are a helpful AI assistant. Use the following context to answer the user's question. If the context doesn't contain enough information to answer the question, say so politely.
+
+Context:
+{context}
+
+Question: {prompt}
+
+Answer:"""
+        
+        response = model.generate_content(full_prompt)
+        return response.text
+    except Exception as e:
+        print(f"Gemini response error: {e}")
+        return "I'm sorry, I encountered an error while processing your request."
+
+def cosine_similarity(a, b):
+    """Calculate cosine similarity between two vectors"""
+    try:
+        dot_product = sum(x * y for x, y in zip(a, b))
+        magnitude_a = math.sqrt(sum(x * x for x in a))
+        magnitude_b = math.sqrt(sum(x * x for x in b))
+        
+        if magnitude_a == 0 or magnitude_b == 0:
+            return 0
+        
+        return dot_product / (magnitude_a * magnitude_b)
+    except:
+        return 0
+
+def find_relevant_chunks(query_embedding, bot_id, supabase, top_k=3):
+    """Find the most relevant text chunks for a query"""
+    try:
+        # Get all embeddings for this bot
+        result = supabase.table("embeddings").select("*").eq("document_id", 
+            supabase.table("documents").select("id").eq("bot_id", bot_id).execute().data[0]["id"]
+        ).execute()
+        
+        if not result.data:
+            return []
+        
+        # Calculate similarities
+        similarities = []
+        for embedding_row in result.data:
+            similarity = cosine_similarity(query_embedding, embedding_row["embedding"])
+            similarities.append({
+                "chunk": embedding_row["chunk_text"],
+                "similarity": similarity
+            })
+        
+        # Sort by similarity and return top k
+        similarities.sort(key=lambda x: x["similarity"], reverse=True)
+        return [item["chunk"] for item in similarities[:top_k]]
+    except Exception as e:
+        print(f"Error finding relevant chunks: {e}")
+        return []
 
 def scrape_website(url):
     """Scrape text content from a website"""
@@ -143,7 +205,7 @@ class handler(BaseHTTPRequestHandler):
             response = {
                 "status": "ok",
                 "environment": os.getenv("ENVIRONMENT", "development"),
-                "version": "1.2.0"
+                "version": "1.3.0"
             }
         elif path == '/api/test':
             response = {
@@ -175,7 +237,7 @@ class handler(BaseHTTPRequestHandler):
         else:
             response = {
                 "message": "Botverse API is running",
-                "version": "1.2.0",
+                "version": "1.3.0",
                 "path": path
             }
         
@@ -271,6 +333,30 @@ class handler(BaseHTTPRequestHandler):
                     "details": str(type(e).__name__)
                 }
         
+        elif path == '/api/chat':
+            try:
+                # Get content length
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse JSON data
+                data = json.loads(post_data.decode('utf-8'))
+                bot_id = data.get('botId')
+                message = data.get('message')
+                
+                if not bot_id or not message:
+                    response = {"error": "Bot ID and message are required"}
+                else:
+                    response = self.process_chat_message(bot_id, message)
+                    
+            except json.JSONDecodeError:
+                response = {"error": "Invalid JSON data"}
+            except Exception as e:
+                response = {
+                    "error": f"Chat processing error: {str(e)}",
+                    "details": str(type(e).__name__)
+                }
+        
         else:
             response = {
                 "message": "POST endpoint working",
@@ -278,6 +364,61 @@ class handler(BaseHTTPRequestHandler):
             }
         
         self.wfile.write(json.dumps(response).encode())
+    
+    def process_chat_message(self, bot_id, message):
+        """Process chat message and generate response"""
+        try:
+            # Get Supabase client
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"error": "Database connection failed"}
+            
+            # Check if bot exists
+            bot_result = supabase.table("bots").select("*").eq("id", bot_id).execute()
+            if not bot_result.data:
+                return {"error": "Bot not found"}
+            
+            bot = bot_result.data[0]
+            
+            # Get query embedding
+            query_embedding = get_gemini_embeddings(message)
+            if not query_embedding:
+                return {"error": "Failed to generate query embedding"}
+            
+            # Find relevant chunks
+            relevant_chunks = find_relevant_chunks(query_embedding, bot_id, supabase)
+            
+            if not relevant_chunks:
+                context = f"No specific information found in the {bot['type']} '{bot['source']}'. Please ask a more specific question or try rephrasing."
+            else:
+                context = "\n\n".join(relevant_chunks)
+            
+            # Generate response
+            ai_response = get_gemini_response(message, context)
+            
+            # Store chat history
+            try:
+                chat_data = {
+                    "bot_id": bot_id,
+                    "user_message": message,
+                    "bot_response": ai_response
+                }
+                supabase.table("chat_history").insert(chat_data).execute()
+            except Exception as e:
+                print(f"Failed to store chat history: {e}")
+            
+            return {
+                "message": "Chat response generated successfully",
+                "response": ai_response,
+                "bot_name": bot["name"],
+                "chunks_used": len(relevant_chunks)
+            }
+            
+        except Exception as e:
+            return {
+                "error": f"Chat processing error: {str(e)}",
+                "details": str(type(e).__name__)
+            }
     
     def process_website_scrape(self, url, bot_name):
         """Process website scraping and store in database"""
