@@ -54,5 +54,6 @@ def health_check():
     }
 
 # For Vercel serverless functions
-def handler(event, context):
-    return app 
+from mangum import Mangum
+
+handler = Mangum(app) 
